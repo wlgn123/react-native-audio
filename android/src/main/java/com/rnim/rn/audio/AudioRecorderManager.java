@@ -1,4 +1,4 @@
-package com.rnim.rn.audio;
+package com.audiodemo;
 
 import android.Manifest;
 import android.content.Context;
@@ -12,35 +12,25 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Environment;
 import android.media.MediaRecorder;
 import android.media.AudioManager;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import android.util.Base64;
 import android.util.Log;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import java.io.FileInputStream;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.IllegalAccessException;
-import java.lang.NoSuchMethodException;
-
-class AudioRecorderManager extends ReactContextBaseJavaModule {
+public class AudioRecorderManager extends ReactContextBaseJavaModule {
 
   private static final String TAG = "ReactNativeAudio";
 
@@ -56,30 +46,13 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
   private MediaRecorder recorder;
   private String currentOutputFile;
   private boolean isRecording = false;
-  private boolean isPaused = false;
-  private boolean includeBase64 = false;
   private Timer timer;
-  private StopWatch stopWatch;
-  
-  private boolean isPauseResumeCapable = false;
-  private Method pauseMethod = null;
-  private Method resumeMethod = null;
+  private int recorderSecondsElapsed;
 
 
   public AudioRecorderManager(ReactApplicationContext reactContext) {
     super(reactContext);
     this.context = reactContext;
-    stopWatch = new StopWatch();
-    
-    isPauseResumeCapable = Build.VERSION.SDK_INT > Build.VERSION_CODES.M;
-    if (isPauseResumeCapable) {
-      try {
-        pauseMethod = MediaRecorder.class.getMethod("pause");
-        resumeMethod = MediaRecorder.class.getMethod("resume");
-      } catch (NoSuchMethodException e) {
-        Log.d("ERROR", "Failed to get a reference to pause and/or resume method");
-      }
-    }
   }
 
   @Override
@@ -125,7 +98,6 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
       recorder.setAudioChannels(recordingSettings.getInt("Channels"));
       recorder.setAudioEncodingBitRate(recordingSettings.getInt("AudioEncodingBitRate"));
       recorder.setOutputFile(recordingPath);
-      includeBase64 = recordingSettings.getBoolean("IncludeBase64");
     }
     catch(final Exception e) {
       logAndRejectPromise(promise, "COULDNT_CONFIGURE_MEDIA_RECORDER" , "Make sure you've added RECORD_AUDIO permission to your AndroidManifest.xml file "+e.getMessage());
@@ -194,11 +166,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
       return;
     }
     recorder.start();
-
-    stopWatch.reset();
-    stopWatch.start();
     isRecording = true;
-    isPaused = false;
     startTimer();
     promise.resolve(currentOutputFile);
   }
@@ -212,12 +180,10 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
     stopTimer();
     isRecording = false;
-    isPaused = false;
 
     try {
       recorder.stop();
       recorder.release();
-      stopWatch.stop();
     }
     catch (final RuntimeException e) {
       // https://developer.android.com/reference/android/media/MediaRecorder.html#stop()
@@ -229,96 +195,41 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     }
 
     promise.resolve(currentOutputFile);
-
-    WritableMap result = Arguments.createMap();
-    result.putString("status", "OK");
-    result.putString("audioFileURL", "file://" + currentOutputFile);
-
-    String base64 = "";
-    if (includeBase64) {
-      try {
-        InputStream inputStream = new FileInputStream(currentOutputFile);
-        byte[] bytes;
-        byte[] buffer = new byte[8192];
-        int bytesRead;
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try {
-          while ((bytesRead = inputStream.read(buffer)) != -1) {
-            output.write(buffer, 0, bytesRead);
-          }
-        } catch (IOException e) {
-          Log.e(TAG, "FAILED TO PARSE FILE");
-        }
-        bytes = output.toByteArray();
-        base64 = Base64.encodeToString(bytes, Base64.DEFAULT);
-      } catch(FileNotFoundException e) {
-        Log.e(TAG, "FAILED TO FIND FILE");
-      }
-    }
-    result.putString("base64", base64);
-
-    sendEvent("recordingFinished", result);
+    sendEvent("recordingFinished", null);
   }
 
   @ReactMethod
-  public void pauseRecording(Promise promise) {
-    if (!isPauseResumeCapable || pauseMethod==null) {
-      logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "Method not available on this version of Android.");
-      return;
-    }
-
-    if (!isPaused) {
-      try {
-        pauseMethod.invoke(recorder);
-        stopWatch.stop();
-      } catch (InvocationTargetException | RuntimeException | IllegalAccessException e) {
-        e.printStackTrace();
-        logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "Method not available on this version of Android.");
-        return;
-      }
-    }
-
-    isPaused = true;
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void resumeRecording(Promise promise) {
-    if (!isPauseResumeCapable || resumeMethod == null) {
-      logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "Method not available on this version of Android.");
-      return;
-    }
-
-    if (isPaused) {
-      try {
-        resumeMethod.invoke(recorder);
-        stopWatch.start();
-      } catch (InvocationTargetException | RuntimeException | IllegalAccessException e) {
-        e.printStackTrace();
-        logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "Method not available on this version of Android.");
-        return;
-      }
-    }
-    
-    isPaused = false;
-    promise.resolve(null);
+  public void pauseRecording(Promise promise){
+    // Added this function to have the same api for android and iOS, stops recording now
+    stopRecording(promise);
   }
 
   private void startTimer(){
+    stopTimer();
     timer = new Timer();
     timer.scheduleAtFixedRate(new TimerTask() {
       @Override
       public void run() {
-        if (!isPaused) {
-          WritableMap body = Arguments.createMap();
-          body.putDouble("currentTime", stopWatch.getTimeSeconds());
-          sendEvent("recordingProgress", body);
-        }
+        AudioRecorderManager.this.getReactApplicationContext().runOnNativeModulesQueueThread(new Runnable() {
+          @Override
+          public void run() {
+            recorderSecondsElapsed++;
+            WritableMap body = Arguments.createMap();
+            body.putInt("currentTime", recorderSecondsElapsed/4);
+            int maxAmplitude = 0;
+            if (recorder != null) {
+              maxAmplitude = recorder.getMaxAmplitude();
+            }
+            body.putInt("currentMetering", maxAmplitude);
+            sendEvent("recordingProgress", body);
+          }
+        });
       }
-    }, 0, 1000);
+    }, 0, 250);
   }
 
   private void stopTimer(){
+    recorderSecondsElapsed = 0;
     if (timer != null) {
       timer.cancel();
       timer.purge();
@@ -336,4 +247,5 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
     Log.e(TAG, errorMessage);
     promise.reject(errorCode, errorMessage);
   }
+
 }
