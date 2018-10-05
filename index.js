@@ -9,7 +9,7 @@ import ReactNative, {
   PermissionsAndroid,
   Platform
 } from "react-native";
-
+console.log("############", NativeModules)
 var AudioRecorderManager = NativeModules.AudioRecorderManager;
 
 var AudioRecorder = {
@@ -38,7 +38,7 @@ var AudioRecorder = {
       AudioQuality: 'High',
       AudioEncoding: 'ima4',
       OutputFormat: 'mpeg_4',
-      MeteringEnabled: false,
+      MeteringEnabled: true,
       MeasurementMode: false,
       AudioEncodingBitRate: 32000,
       IncludeBase64: false
@@ -75,6 +75,8 @@ var AudioRecorder = {
   },
   checkAuthorizationStatus: AudioRecorderManager.checkAuthorizationStatus,
   requestAuthorization: () => {
+    alert("requestAuthorization");
+    console.log("####");
     if (Platform.OS === 'ios')
       return AudioRecorderManager.requestAuthorization();
     else
