@@ -1,4 +1,4 @@
-package com.audiodemo;
+package com.rnim.rn.audio;
 
 import android.Manifest;
 import android.content.Context;
@@ -30,7 +30,7 @@ import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import java.io.FileInputStream;
 
-public class AudioRecorderManager extends ReactContextBaseJavaModule {
+class AudioRecorderManager extends ReactContextBaseJavaModule {
 
   private static final String TAG = "ReactNativeAudio";
 
