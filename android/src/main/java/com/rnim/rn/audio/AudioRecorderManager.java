@@ -170,7 +170,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
       isRecording = true;
       startTimer();
       promise.resolve(currentOutputFile);
-    } catch (Exeption e) {
+    } catch (Exception e) {
      
     }
   }
