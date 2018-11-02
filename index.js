@@ -80,16 +80,7 @@ var AudioRecorder = {
     if (Platform.OS === 'ios')
       return AudioRecorderManager.requestAuthorization();
     else
-      return new Promise((resolve, reject) => {
-        PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
-        ).then(result => {
-          if (result == PermissionsAndroid.RESULTS.GRANTED || result == true)
-            resolve(true);
-          else
-            resolve(false)
-        })
-      });
+      return AudioRecorderManager.requestAuthorization();
   },
   removeListeners: function() {
     if (this.progressSubscription) this.progressSubscription.remove();
