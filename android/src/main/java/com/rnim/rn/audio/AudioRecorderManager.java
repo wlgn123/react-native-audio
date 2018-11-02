@@ -75,41 +75,50 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void checkAuthorizationStatus(Promise promise) {
-    int permissionCheck = ContextCompat.checkSelfPermission(getCurrentActivity(),
+    try {
+          int permissionCheck = ContextCompat.checkSelfPermission(getCurrentActivity(),
             Manifest.permission.RECORD_AUDIO);
-    boolean permissionGranted = permissionCheck == PackageManager.PERMISSION_GRANTED;
-    promise.resolve(permissionGranted);
+          boolean permissionGranted = permissionCheck == PackageManager.PERMISSION_GRANTED;
+          promise.resolve(permissionGranted);
+    } catch (final Exception e) {
+          
+    }
+
   }
 
   @ReactMethod
   public void prepareRecordingAtPath(String recordingPath, ReadableMap recordingSettings, Promise promise) {
-    if (isRecording){
-      logAndRejectPromise(promise, "INVALID_STATE", "Please call stopRecording before starting recording");
-    }
-
-    recorder = new MediaRecorder();
     try {
-      recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-      int outputFormat = getOutputFormatFromString(recordingSettings.getString("OutputFormat"));
-      recorder.setOutputFormat(outputFormat);
-      int audioEncoder = getAudioEncoderFromString(recordingSettings.getString("AudioEncoding"));
-      recorder.setAudioEncoder(audioEncoder);
-      recorder.setAudioSamplingRate(recordingSettings.getInt("SampleRate"));
-      recorder.setAudioChannels(recordingSettings.getInt("Channels"));
-      recorder.setAudioEncodingBitRate(recordingSettings.getInt("AudioEncodingBitRate"));
-      recorder.setOutputFile(recordingPath);
-    }
-    catch(final Exception e) {
-      logAndRejectPromise(promise, "COULDNT_CONFIGURE_MEDIA_RECORDER" , "Make sure you've added RECORD_AUDIO permission to your AndroidManifest.xml file "+e.getMessage());
-      return;
-    }
+          if (isRecording){
+            logAndRejectPromise(promise, "INVALID_STATE", "Please call stopRecording before starting recording");
+          }
 
-    currentOutputFile = recordingPath;
-    try {
-      recorder.prepare();
-      promise.resolve(currentOutputFile);
+          recorder = new MediaRecorder();
+          try {
+            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            int outputFormat = getOutputFormatFromString(recordingSettings.getString("OutputFormat"));
+            recorder.setOutputFormat(outputFormat);
+            int audioEncoder = getAudioEncoderFromString(recordingSettings.getString("AudioEncoding"));
+            recorder.setAudioEncoder(audioEncoder);
+            recorder.setAudioSamplingRate(recordingSettings.getInt("SampleRate"));
+            recorder.setAudioChannels(recordingSettings.getInt("Channels"));
+            recorder.setAudioEncodingBitRate(recordingSettings.getInt("AudioEncodingBitRate"));
+            recorder.setOutputFile(recordingPath);
+          }
+          catch(final Exception e) {
+            logAndRejectPromise(promise, "COULDNT_CONFIGURE_MEDIA_RECORDER" , "Make sure you've added RECORD_AUDIO permission to your AndroidManifest.xml file "+e.getMessage());
+            return;
+          }
+
+          currentOutputFile = recordingPath;
+          try {
+            recorder.prepare();
+            promise.resolve(currentOutputFile);
+          } catch (final Exception e) {
+            logAndRejectPromise(promise, "COULDNT_PREPARE_RECORDING_AT_PATH "+recordingPath, e.getMessage());
+          }
     } catch (final Exception e) {
-      logAndRejectPromise(promise, "COULDNT_PREPARE_RECORDING_AT_PATH "+recordingPath, e.getMessage());
+          
     }
 
   }
@@ -177,79 +186,109 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void stopRecording(Promise promise){
-    if (!isRecording){
-      logAndRejectPromise(promise, "INVALID_STATE", "Please call startRecording before stopping recording");
-      return;
-    }
-
-    stopTimer();
-    isRecording = false;
-
+    
     try {
-      recorder.stop();
-      recorder.release();
-    }
-    catch (final RuntimeException e) {
-      // https://developer.android.com/reference/android/media/MediaRecorder.html#stop()
-      logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "No valid audio data received. You may be using a device that can't record audio.");
-      return;
-    }
-    finally {
-      recorder = null;
-    }
+          if (!isRecording){
+            logAndRejectPromise(promise, "INVALID_STATE", "Please call startRecording before stopping recording");
+            return;
+          }
 
-    promise.resolve(currentOutputFile);
-    sendEvent("recordingFinished", null);
+          stopTimer();
+          isRecording = false;
+
+          try {
+            recorder.stop();
+            recorder.release();
+          }
+          catch (final RuntimeException e) {
+            // https://developer.android.com/reference/android/media/MediaRecorder.html#stop()
+            logAndRejectPromise(promise, "RUNTIME_EXCEPTION", "No valid audio data received. You may be using a device that can't record audio.");
+            return;
+          }
+          finally {
+            recorder = null;
+          }
+
+          promise.resolve(currentOutputFile);
+          sendEvent("recordingFinished", null);
+    } catch (Exception e) {
+     
+    }
+    
+
   }
 
   @ReactMethod
   public void pauseRecording(Promise promise){
-    // Added this function to have the same api for android and iOS, stops recording now
-    stopRecording(promise);
+        try {
+            // Added this function to have the same api for android and iOS, stops recording now
+            stopRecording(promise); 
+        } catch (Exception e) {
+     
+        }
   }
 
   private void startTimer(){
-    stopTimer();
-    timer = new Timer();
-    timer.scheduleAtFixedRate(new TimerTask() {
-      @Override
-      public void run() {
-        AudioRecorderManager.this.getReactApplicationContext().runOnNativeModulesQueueThread(new Runnable() {
-          @Override
-          public void run() {
-            recorderSecondsElapsed++;
-            WritableMap body = Arguments.createMap();
-            body.putInt("currentTime", recorderSecondsElapsed/4);
-            int maxAmplitude = 0;
-            if (recorder != null) {
-              maxAmplitude = recorder.getMaxAmplitude();
-            }
-            body.putInt("currentMetering", maxAmplitude);
-            sendEvent("recordingProgress", body);
-          }
-        });
-      }
-    }, 0, 250);
+     try {  
+            stopTimer();
+            timer = new Timer();
+            timer.scheduleAtFixedRate(new TimerTask() {
+              @Override
+              public void run() {
+                AudioRecorderManager.this.getReactApplicationContext().runOnNativeModulesQueueThread(new Runnable() {
+                  @Override
+                  public void run() {
+                    recorderSecondsElapsed++;
+                    WritableMap body = Arguments.createMap();
+                    body.putInt("currentTime", recorderSecondsElapsed/4);
+                    int maxAmplitude = 0;
+                    if (recorder != null) {
+                      maxAmplitude = recorder.getMaxAmplitude();
+                    }
+                    body.putInt("currentMetering", maxAmplitude);
+                    sendEvent("recordingProgress", body);
+                  }
+                });
+              }
+            }, 0, 250);
+        } catch (Exception e) {
+     
+        }
+
   }
 
-  private void stopTimer(){
-    recorderSecondsElapsed = 0;
-    if (timer != null) {
-      timer.cancel();
-      timer.purge();
-      timer = null;
+  private void stopTimer() {
+    try {
+        recorderSecondsElapsed = 0;
+        if (timer != null) {
+          timer.cancel();
+          timer.purge();
+          timer = null;
+        }
+    } catch (Exception e) {
+     
     }
   }
 
   private void sendEvent(String eventName, Object params) {
-    getReactApplicationContext()
+    try {
+        getReactApplicationContext()
             .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
             .emit(eventName, params);
+    } catch (Exception e) {
+     
+    }
+
   }
 
   private void logAndRejectPromise(Promise promise, String errorCode, String errorMessage) {
-    Log.e(TAG, errorMessage);
-    promise.reject(errorCode, errorMessage);
+     try {
+        Log.e(TAG, errorMessage);
+        promise.reject(errorCode, errorMessage);
+    } catch (Exception e) {
+     
+    }
+
   }
 
 }
