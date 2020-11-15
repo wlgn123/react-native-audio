@@ -246,6 +246,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
                       maxAmplitude = recorder.getMaxAmplitude();
                     }
                     body.putInt("currentMetering", maxAmplitude);
+                    body.putInt("value", (int) (20 * Math.log(((double) maxAmplitude) / 32767d)));
                     sendEvent("recordingProgress", body);
                   }
                 });
