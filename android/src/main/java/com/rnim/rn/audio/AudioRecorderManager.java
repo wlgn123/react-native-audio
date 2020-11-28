@@ -251,7 +251,7 @@ class AudioRecorderManager extends ReactContextBaseJavaModule {
                   }
                 });
               }
-            }, 0, 250);
+            }, 0, 100);
         } catch (Exception e) {
      
         }
